@@ -72,11 +72,13 @@ def quick_survival_score(
     with torch.no_grad():
         for step in range(n_steps):
             t = substrate.update_step(t, params)
-            t = t.clamp(0.0)
+            # Match evaluator: clamp to [0, 1] after each step
+            t = t.clamp(0.0, 1.0)
             current_mass = float(t.sum().item())
             masses.append(current_mass)
             # Early abort: mass creation kill (evaluator kills at 3x)
-            if current_mass > 2.8 * parent_init_mass:
+            # Allow some overshoot during initial transient (first 50 steps)
+            if step > 50 and current_mass > 2.9 * parent_init_mass:
                 return 0.0
             # Early abort: pattern died
             if current_mass < 0.1 * parent_init_mass:
