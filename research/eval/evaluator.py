@@ -1964,7 +1964,7 @@ def main() -> None:
                     rel = str(f.relative_to(sol))
                     sol_files[rel] = f.read_bytes()
 
-            @app.function(gpu=GPU_TYPE, timeout=TIMEOUT_SECS)
+            @app.function(gpu=GPU_TYPE, timeout=TIMEOUT_SECS, serialized=True)
             def _remote(seed: int, files: dict) -> dict:
                 import os, pathlib
                 remote_sol = pathlib.Path("/solution")
