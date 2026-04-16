@@ -7,11 +7,11 @@ plugin_source: "local:/Users/wujiewang/code/git-evolve"
 metric:
   name: "composite_life_likeness"
   direction: maximize
-  target: 0.55                 # reliable Tier 3+4 + VLM-confirmed life-likeness
+  target: 0.55                 # Tier 3+4+locomotion+VLM confirmed; 0.27t3+0.40t4+0.23v+0.10l
   min_relative_improvement: 0.05
 
 baselines:
-  standard_flow_lenia: null    # to be measured empirically at Step 2.5
+  standard_flow_lenia: null    # to be measured on first Modal eval run
 
 eval:
   timeout: 1200                # 20 minutes per seed on T4 GPU
