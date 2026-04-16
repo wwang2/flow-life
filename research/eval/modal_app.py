@@ -2,16 +2,14 @@
 Shared Modal app definition for the flow-life campaign.
 
 Single source of truth for:
-  - Modal image (built from pyproject.toml via uv)
+  - Modal image (pip_install-based, no uv on remote)
   - Hardware config (T4 GPU, 4 CPUs, 16 GB RAM)
   - App name
 
 Both evaluator.py and orbit solution run.py import from here.
-To add a package: `uv add <package>` at the project root.
 """
 
 import modal
-from pathlib import Path
 
 # ── Hardware config (from research/config.yaml compute.*) ─────────────────────
 GPU_TYPE     = "T4"    # T4 for 256×256 Flow-Lenia + CLIP + VLM scoring
@@ -19,24 +17,35 @@ CPU_COUNT    = 4
 MEMORY_MB    = 16384
 TIMEOUT_SECS = 1200    # 20 min per seed — matches eval.timeout in config.yaml
 
-# ── Image built from pyproject.toml via uv ────────────────────────────────────
-_repo_root = Path(__file__).parent.parent.parent  # campaign repo root
-
+# ── Image ──────────────────────────────────────────────────────────────────────
+# Build in layers so only changed layers rebuild.
 image = (
     modal.Image.debian_slim(python_version="3.11")
-    .run_commands("pip install uv --quiet")
-    .add_local_file(str(_repo_root / "pyproject.toml"), "/app/pyproject.toml", copy=True)
-    .run_commands("cd /app && uv pip install --system .")
-    # Install PyTorch with CUDA for GPU-accelerated FFT convolutions
-    .run_commands(
-        "pip install torch torchvision --index-url https://download.pytorch.org/whl/cu118 --quiet"
+    # System deps for imageio / PIL / scipy
+    .run_commands("apt-get update -qq && apt-get install -y git libglib2.0-0 --no-install-recommends -qq")
+    # PyTorch with CUDA 12.1 (supported on T4)
+    .pip_install(
+        "torch==2.3.0",
+        "torchvision==0.18.0",
+        extra_index_url="https://download.pytorch.org/whl/cu121",
     )
-    # Install clip for heredity scoring
+    # Scientific stack
+    .pip_install(
+        "numpy>=1.26",
+        "scipy>=1.13",
+        "scikit-image>=0.22",
+        "imageio>=2.34",
+        "imageio[ffmpeg]",
+        "matplotlib>=3.8",
+        "Pillow>=10.0",
+        "pyyaml>=6",
+    )
+    # CLIP (openai) for heredity scoring
     .run_commands("pip install git+https://github.com/openai/CLIP.git --quiet")
-    # Install scikit-image for SSIM, scipy for connected-component labeling
-    .run_commands("pip install scikit-image scipy imageio --quiet")
-    # Install anthropic SDK for VLM vision scoring
-    .run_commands("pip install anthropic --quiet")
+    # Anthropic SDK for VLM vision scoring
+    .pip_install("anthropic>=0.25")
+    # ftfy / regex needed by CLIP
+    .pip_install("ftfy", "regex")
 )
 
 # ── Modal app ──────────────────────────────────────────────────────────────────
