@@ -1952,13 +1952,31 @@ def main() -> None:
     if args.modal or os.environ.get("MODAL_DISPATCH") == "1":
         try:
             from research.eval.modal_app import app, GPU_TYPE, TIMEOUT_SECS
-            import modal
-            @app.function(gpu=GPU_TYPE, timeout=TIMEOUT_SECS,
-                          mounts=[modal.Mount.from_local_dir(sol, remote_path="/solution")])
-            def _remote(seed: int) -> dict:
-                return evaluate_seed("/solution", seed)
+
+            # Serialize solution directory — pass all files as bytes dict
+            # (modal.Mount.from_local_dir removed in modal 1.x; use add_local_dir on image
+            # for static files; for dynamic solution dirs we serialize inline)
+            sol_files: dict[str, bytes] = {}
+            for f in Path(sol).rglob("*"):
+                if f.is_file() and not any(
+                    part.startswith(("__pycache__", ".git")) for part in f.parts
+                ):
+                    rel = str(f.relative_to(sol))
+                    sol_files[rel] = f.read_bytes()
+
+            @app.function(gpu=GPU_TYPE, timeout=TIMEOUT_SECS)
+            def _remote(seed: int, files: dict) -> dict:
+                import os, pathlib
+                remote_sol = pathlib.Path("/solution")
+                remote_sol.mkdir(parents=True, exist_ok=True)
+                for rel, data in files.items():
+                    dest = remote_sol / rel
+                    dest.parent.mkdir(parents=True, exist_ok=True)
+                    dest.write_bytes(data)
+                return evaluate_seed(str(remote_sol), seed)
+
             with app.run():
-                results = _remote.remote(args.seed)
+                results = _remote.remote(args.seed, sol_files)
         except ImportError:
             log.warning("Modal unavailable, running locally")
             results = evaluate_seed(sol, args.seed)
