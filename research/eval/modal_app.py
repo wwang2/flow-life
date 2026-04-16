@@ -20,14 +20,14 @@ TIMEOUT_SECS = 1200    # 20 min per seed — matches eval.timeout in config.yaml
 # ── Image ──────────────────────────────────────────────────────────────────────
 # Build in layers so only changed layers rebuild.
 image = (
-    modal.Image.debian_slim(python_version="3.11")
+    modal.Image.debian_slim(python_version="3.14")
     # System deps for imageio / PIL / scipy
     .run_commands("apt-get update -qq && apt-get install -y git libglib2.0-0 --no-install-recommends -qq")
-    # PyTorch with CUDA 12.1 (supported on T4)
+    # PyTorch with CUDA 12.6 (T4 supports CUDA 12.x; 2.11+ has Python 3.14 wheels)
     .pip_install(
-        "torch==2.3.0",
-        "torchvision==0.18.0",
-        extra_index_url="https://download.pytorch.org/whl/cu121",
+        "torch>=2.11.0",
+        "torchvision",
+        extra_index_url="https://download.pytorch.org/whl/cu126",
     )
     # Scientific stack
     .pip_install(
