@@ -2,7 +2,7 @@
 issue: 2
 parents: []
 eval_version: eval-v1
-metric: null
+metric: 0.230683
 ---
 
 # Multi-Channel Flow-Lenia with Inter-Channel Competitive Coupling
@@ -24,4 +24,17 @@ Building on the two-kernel fission substrate from `good.py`, which already demon
 
 ## Research Notes
 
-(Results appended after each eval iteration)
+## Seed 1 Results (CPU, eval-v1)
+
+| Metric | Value |
+|--------|-------|
+| Tier 1 | PASS (concentration=1.000, survival=1.068) |
+| Tier 3 | **0.8527** (sr=0.9687, ho=0.6785) |
+| Locomotion | 0.0047 (displacement=0.23px — nearly static) |
+| Tier 4 | 0.0000 (daughters=0, no replication detected) |
+| Vision | 0.0000 (VLM skipped — `anthropic` not installed at run time) |
+| **METRIC** | **0.2307** |
+
+**Analysis:** Excellent self-repair (SSIM 0.97 across 3 trials) confirms the two-kernel Turing substrate robustly restores structure after 20% damage. However, t4=0 — the 10,000-step simulation found no daughter blobs. The substrate is stable but not replicating. Homeostasis CV=0.32 is moderate; mass oscillates rather than being tightly regulated.
+
+**Next steps for a child orbit:** Reduce pattern mass or increase flow strength to push toward fission regime; try asymmetric perturbation to trigger splitting.
