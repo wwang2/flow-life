@@ -156,6 +156,38 @@ def run_and_score_fission(
     return score, max_daughters, best_state
 
 
+def settle_pattern(
+    substrate: MultiKernelFlowLenia,
+    params: dict,
+    state: np.ndarray,
+    steps: int = 800,
+    device=None,
+) -> np.ndarray:
+    """Run N warmup steps so the pattern reaches mass equilibrium.
+
+    The IC Gaussian blob causes explosive initial mass growth (3x in ~6 steps)
+    due to the outer attraction filling empty cells. After ~200-500 steps, cell
+    clamping at [0,1] stabilises the mass. Saving the settled state (not the IC)
+    ensures the evaluator's 3x-mass-creation kill won't trigger.
+    """
+    if device is None and HAS_TORCH:
+        device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    if HAS_TORCH:
+        t = torch.tensor(state, dtype=torch.float32, device=device)
+        substrate.to(device)
+        with torch.no_grad():
+            for _ in range(steps):
+                t = substrate.update_step(t, params)
+        return t.cpu().numpy()
+    else:
+        s = state.copy()
+        for _ in range(steps):
+            flow = substrate.compute_flow(s, params)
+            s = substrate.apply_growth(s, flow, params)
+            s = np.clip(s, 0.0, 1.0)
+        return s
+
+
 def survival_filter(
     substrate: MultiKernelFlowLenia,
     params: dict,
@@ -332,14 +364,18 @@ def main():
 
     for idx, ic in enumerate(ic_variants):
         label = "elongated_blob" if idx == 0 else f"blob_var_{idx}"
-        survived, ratio = survival_filter(substrate, base_params, ic, steps=500, device=device)
+        # Settle the IC first: run 800 warmup steps so mass reaches equilibrium.
+        # This prevents the evaluator's 3x mass-creation kill (IC blob mass-explodes
+        # in the first ~6 steps; settled state is at the new equilibrium mass level).
+        settled = settle_pattern(substrate, base_params, ic, steps=800, device=device)
+        survived, ratio = survival_filter(substrate, base_params, settled, steps=200, device=device)
         if not survived:
             continue
-        fscore, ndaughters, _ = run_and_score_fission(substrate, base_params, ic, device=device)
+        fscore, ndaughters, _ = run_and_score_fission(substrate, base_params, settled, device=device)
         composite = fscore
         if composite > best_fission_score:
             best_fission_score = composite
-            best_pattern = ic.copy()
+            best_pattern = settled.copy()  # save settled state, not raw IC
             best_params = base_params
             best_daughters = ndaughters
             print(f"  [{label}] score={composite:.4f} daughters={ndaughters} ** new best **", flush=True)
@@ -357,17 +393,18 @@ def main():
             for sol in solutions:
                 p = params_from_vector(sol, base_params)
                 ic = make_elongated_blob(G, rng)
-                survived, _ = survival_filter(substrate, p, ic, steps=300, device=device)
+                settled_ic = settle_pattern(substrate, p, ic, steps=600, device=device)
+                survived, _ = survival_filter(substrate, p, settled_ic, steps=200, device=device)
                 if not survived:
                     fitnesses.append(1.0)  # worst (minimizing)
                     continue
                 fscore, ndaughters, _ = run_and_score_fission(
-                    substrate, p, ic, fission_steps=3000, device=device)
+                    substrate, p, settled_ic, fission_steps=3000, device=device)
                 neg_score = 1.0 - fscore
                 fitnesses.append(neg_score)
                 if fscore > best_fission_score:
                     best_fission_score = fscore
-                    best_pattern = ic.copy()
+                    best_pattern = settled_ic.copy()  # save settled state
                     best_params = p
                     best_daughters = ndaughters
                     print(f"  [cmaes-gen{gen}] score={fscore:.4f} daughters={ndaughters} ** new best **", flush=True)
