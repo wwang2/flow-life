@@ -30,13 +30,14 @@ def create_fission_blob(
     grid_size: int = 256,
     seed: int = 42,
     sigma_y: float = 18.0,
-    sigma_x: float = 14.0,
+    sigma_x: float = 12.0,
     center_offset: tuple[int, int] = (0, 0),
 ) -> np.ndarray:
-    """Create an elongated Gaussian blob tuned for fission.
+    """Create a highly elongated Gaussian blob tuned for fission.
 
-    The elongation biases the first fission axis. The blob has enough mass
-    to trigger Turing instability in the RD morphogen layer.
+    The strong elongation (sigma_y >> sigma_x) biases the first fission axis,
+    making it easier for the inner repulsion to pinch the blob in two.
+    Noise breaks perfect symmetry to encourage asymmetric splitting.
     """
     rng = np.random.RandomState(seed)
     H, W = grid_size, grid_size
@@ -46,7 +47,7 @@ def create_fission_blob(
     x = np.arange(W) - cx
     yy, xx = np.meshgrid(y, x, indexing="ij")
     blob = np.exp(-0.5 * ((yy / sigma_y) ** 2 + (xx / sigma_x) ** 2))
-    noise = rng.randn(H, W) * 0.02
+    noise = rng.randn(H, W) * 0.03  # moderate noise for symmetry breaking
     state = np.clip(blob + noise, 0.0, 1.0).astype(np.float32)
     return state[np.newaxis]  # (1, H, W)
 
