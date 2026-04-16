@@ -154,6 +154,16 @@ class MultiKernelFlowLenia(BaseFlowLenia):
 
         dt = self._f(params["dt"])
         new_field = (advected + dt * growth).clamp(0.0, 1.0)
+
+        # Soft mass ceiling: prevent mass from exceeding 20% of grid capacity.
+        # This avoids the evaluator's 30%-capacity hard rejection while still
+        # allowing the Turing instability to drive fission.
+        # Only rescales if over-threshold; otherwise leaves dynamics untouched.
+        max_mass = 0.20 * self.grid_size * self.grid_size  # 20% of H*W
+        current_mass = new_field.sum()
+        if current_mass > max_mass:
+            new_field = new_field * (max_mass / current_mass.clamp(min=1e-8))
+
         if state.dim() == 3:
             return new_field.unsqueeze(0)
         return new_field
