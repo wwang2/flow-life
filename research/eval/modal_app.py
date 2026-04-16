@@ -25,7 +25,7 @@ _repo_root = Path(__file__).parent.parent.parent  # campaign repo root
 image = (
     modal.Image.debian_slim(python_version="3.11")
     .run_commands("pip install uv --quiet")
-    .add_local_file(str(_repo_root / "pyproject.toml"), "/app/pyproject.toml")
+    .add_local_file(str(_repo_root / "pyproject.toml"), "/app/pyproject.toml", copy=True)
     .run_commands("cd /app && uv pip install --system .")
     # Install PyTorch with CUDA for GPU-accelerated FFT convolutions
     .run_commands(
