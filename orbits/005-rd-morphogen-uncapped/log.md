@@ -2,7 +2,7 @@
 issue: 6
 parents: [003-rd-morphogen]
 eval_version: eval-v1
-metric: 0.45
+metric: 0.3814
 ---
 
 # Research Notes
