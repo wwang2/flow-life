@@ -11,8 +11,13 @@ static-frame search?
 ### Composite Life-Likeness Score (maximize)
 
 ```
-composite = 0.30 * tier3_score + 0.45 * tier4_score + 0.25 * vision_score
+composite = 0.27 * tier3_score + 0.40 * tier4_score + 0.23 * vision_score + 0.10 * locomotion_score
 ```
+
+**locomotion_score** (weight 0.10):
+- Measure center-of-mass displacement over 2,000 steady-state steps
+- `score = min(displacement_px / 50.0, 1.0)`
+- Differentiates genuinely motile patterns from static self-repairing blobs
 
 ### Tier 3 Score — Robustness (0–1)
 

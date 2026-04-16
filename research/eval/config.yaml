@@ -1,0 +1,59 @@
+metric:
+  name: "composite_life_likeness"
+  direction: maximize
+  description: "Composite of Tier 3 (robustness), Tier 4 (reproduction), VLM semantic assessment, and locomotion bonus"
+  provenance: "Plantec et al. 2023 (Flow-Lenia); Wang et al. 2004 (SSIM); Radford et al. 2021 (CLIP); DINOv2 (Meta 2023); claude-haiku-4-5-20251001 (VLM)"
+  weights:
+    tier3: 0.27
+    tier4: 0.40
+    vision: 0.23
+    locomotion: 0.10
+  known_pitfalls:
+    - "Static blobs: Tier1 gate + triviality guard zero out higher tiers"
+    - "Fragmentation gaming: 200-step probabilistic autonomy test (5 trials)"
+    - "Mass creation: 3x hard kill inside _sim() for all simulation phases"
+    - "Narrative sheet gaming: ±50 step jitter on capture times"
+    - "Param mutation: deepcopy(params) before every eval phase"
+    - "VLM variance: 3 prompts + null calibration + 3 seeds averaged"
+
+eval:
+  timeout: 1200   # 20 minutes per seed — matches Modal function timeout in evaluator.py
+  seeds: 3
+  grid_size: 256
+  boundary: toroidal
+
+substrate:
+  base_class: BaseFlowLenia
+  backend: pytorch
+  cuda_required: false   # warns but falls back to CPU
+  mass_drift_warning_threshold: 0.05
+
+tier3:
+  damage_fraction: 0.20        # fraction of non-empty pixels to zero out
+  recovery_steps: 500
+  steady_state_steps: 5000
+  warmup_steps: 500
+  ssim_win_size: 11
+  ssim_gaussian_weights: true
+
+tier4:
+  replication_steps: 10000
+  detection_interval: 100      # check every N steps
+  binarize_threshold: 0.05     # fraction of peak mass
+  min_daughter_mass_fraction: 0.10   # fraction of parent initial mass
+  min_centroid_separation_px: 20
+  persistence_frames: 3        # consecutive detection frames required
+  clip_model: "openai/clip-vit-base-patch32"
+  clip_render_size: 64
+  heredity_sim_offset: 0.5     # cosine similarity below this → 0 score
+
+vision:
+  model: "claude-haiku-4-5-20251001"
+  contact_sheet_frames: 9
+  cache_by_image_hash: true
+  rubric_dimensions:
+    - spatial_coherence
+    - locomotion
+    - self_repair_evidence
+    - replication_evidence
+    - complexity
