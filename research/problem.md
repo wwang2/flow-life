@@ -84,12 +84,14 @@ composite = 0.4 * tier3_score + 0.6 * tier4_score
   daughter pattern, averaged over detected daughters. Score = max(0, similarity - 0.5) * 2.
 - `tier4_score = 0.5 * replication_count + 0.5 * heredity`
 
-**Evaluation procedure:** averaged over seeds 1, 2, 3. Timeout per seed: 20 minutes on Modal CPU.
+**Evaluation procedure:** averaged over seeds 1, 2, 3. Timeout per seed: 20 minutes on T4 GPU (Modal).
+Composite includes a vision model score: `composite = 0.30*tier3 + 0.45*tier4 + 0.25*vision_score`
+where vision_score is from `claude-haiku-4-5-20251001` scoring a 9-frame contact sheet GIF.
 
-**Baseline (standard Flow-Lenia, no substrate modification):** expected composite ≈ 0.05–0.15
-(mass-stable solitons with no reliable self-repair or replication).
+**Baseline (standard Flow-Lenia, no substrate modification):** expected composite ≈ 0.15–0.20
+(mass-stable solitons with decent homeostasis but no reliable self-repair or replication).
 
-**Target:** composite ≥ 0.40 (reliable self-repair + at least one reproducible daughter pattern).
+**Target:** composite ≥ 0.55 (reliable self-repair + at least one reproducible daughter pattern + VLM-confirmed life-likeness).
 
 **Direction:** maximize.
 
