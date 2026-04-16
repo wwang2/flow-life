@@ -35,7 +35,7 @@ execution:
 
 phases:
   problem_refinement:
-    parallel_agents: 3
+    parallel_agents: 5
     enabled: true
   eval_construction:
     parallel_agents: 5
