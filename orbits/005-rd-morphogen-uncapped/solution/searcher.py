@@ -105,10 +105,10 @@ def fission_score(
     pattern: np.ndarray,
     params: dict,
     grid_size: int = 256,
-    phase1_steps: int = 500,
-    phase2_start: int = 2000,
-    phase2_end: int = 6000,
-    check_interval: int = 100,
+    phase1_steps: int = 300,
+    phase2_start: int = 1000,
+    phase2_end: int = 3000,
+    check_interval: int = 200,
 ) -> tuple[float, float, np.ndarray]:
     """Evaluate a candidate for fission potential.
 
@@ -313,7 +313,7 @@ def search_patterns(
                       flush=True)
 
             elapsed = time.time() - t_start
-            if elapsed > 600:  # 10 min budget for search
+            if elapsed > 300:  # 5 min budget for search
                 print(f"  Time budget reached ({elapsed:.0f}s), stopping search", flush=True)
                 break
 

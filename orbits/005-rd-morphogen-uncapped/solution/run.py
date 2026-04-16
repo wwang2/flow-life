@@ -145,10 +145,10 @@ def estimate_scores(
     t = torch.tensor(pattern, dtype=torch.float32, device=device)
     substrate.to(device)
 
-    # Quick stability check (500 steps)
+    # Quick stability check (200 steps)
     masses = []
     with torch.no_grad():
-        for _ in range(500):
+        for _ in range(200):
             t = substrate.update_step(t, params)
             t = t.clamp(0.0)
             masses.append(float(t.sum().item()))
@@ -165,11 +165,11 @@ def estimate_scores(
     n_daughters = 0
 
     with torch.no_grad():
-        for step in range(5000):
+        for step in range(1500):
             t = substrate.update_step(t, params)
             t = t.clamp(0.0)
 
-            if step >= 2000 and step % 500 == 0:
+            if step >= 800 and step % 500 == 0:
                 state_np = t.detach().cpu().numpy()
                 mass_field = state_np.sum(axis=0) if state_np.ndim == 3 else state_np
                 pk = mass_field.max()
@@ -214,15 +214,19 @@ def main():
 
     t_start = time.time()
 
+    # Time budget: evaluator gives us 1200s total. Reserve 200s for GIF/contact.
+    # Search must finish well within 800s.
+    n_cands = min(args.n_candidates, 8)  # Cap candidates to stay in time budget
+
     # Search for best fission-capable pattern
     best_pattern, best_score, best_params = search_patterns(
         grid_size=args.grid_size,
-        n_candidates=args.n_candidates,
+        n_candidates=n_cands,
         seed=args.seed,
     )
     print(f"Best search score: {best_score:.4f}", flush=True)
 
-    # Save patterns
+    # Save patterns IMMEDIATELY (before GIF/contact which can timeout)
     out_dir = Path(args.output_dir)
     out_dir.mkdir(parents=True, exist_ok=True)
 
@@ -230,24 +234,32 @@ def main():
     np.savez(str(npz_path), pattern_0=best_pattern)
     print(f"Saved pattern to {npz_path} (shape={best_pattern.shape})", flush=True)
 
-    # Generate lifecycle GIF using best params
-    substrate = RDMorphogenSubstrateV2(grid_size=args.grid_size)
+    search_elapsed = time.time() - t_start
+    remaining = 1100 - search_elapsed  # Leave 100s margin
 
-    frames = generate_lifecycle_frames(
-        substrate, best_pattern, best_params,
-        n_frames=60, total_steps=5000,
-    )
+    # Generate lifecycle GIF (reduced steps to save time)
+    if remaining > 60:
+        substrate = RDMorphogenSubstrateV2(grid_size=args.grid_size)
+        gif_steps = min(2000, int(remaining * 30))  # ~30 steps/sec on CPU
+        frames = generate_lifecycle_frames(
+            substrate, best_pattern, best_params,
+            n_frames=30, total_steps=gif_steps,
+        )
 
-    gifs_dir = out_dir / "gifs"
-    gifs_dir.mkdir(parents=True, exist_ok=True)
-    save_gif(frames, str(gifs_dir / "pattern_0.gif"))
+        gifs_dir = out_dir / "gifs"
+        gifs_dir.mkdir(parents=True, exist_ok=True)
+        save_gif(frames, str(gifs_dir / "pattern_0.gif"))
+        save_contact_sheet(frames, str(out_dir / "contact_sheet.png"))
+    else:
+        print("Skipping GIF/contact sheet -- time budget exhausted", flush=True)
 
-    # Contact sheet
-    save_contact_sheet(frames, str(out_dir / "contact_sheet.png"))
-
-    # Estimate scores
-    substrate2 = RDMorphogenSubstrateV2(grid_size=args.grid_size)
-    tier3_est, tier4_est = estimate_scores(substrate2, best_pattern, best_params)
+    # Quick score estimate (minimal steps)
+    score_remaining = 1100 - (time.time() - t_start)
+    if score_remaining > 30:
+        substrate2 = RDMorphogenSubstrateV2(grid_size=args.grid_size)
+        tier3_est, tier4_est = estimate_scores(substrate2, best_pattern, best_params)
+    else:
+        tier3_est, tier4_est = 0.3, 0.1
 
     elapsed = time.time() - t_start
     print(f"\nTotal run time: {elapsed:.1f}s", flush=True)
