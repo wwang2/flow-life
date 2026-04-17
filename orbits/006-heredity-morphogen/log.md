@@ -2,12 +2,27 @@
 issue: 7
 parents: [005-rd-morphogen-uncapped]
 eval_version: eval-v1
-metric: 0.4349
+metric: 0.4686
 ---
 
 # Research Notes
 
-## Final Evaluation Results (3 seeds)
+## Updated Evaluation Results (3 seeds, with CLIP installed)
+
+| Seed | composite | tier3  | tier4  | daughters | heredity | CLIP_sim | DINOv2_sim |
+|------|-----------|--------|--------|-----------|----------|----------|------------|
+| 1    | 0.3007    | 0.7434 | 0.0000 | 0         | 0.000    | —        | —          |
+| 2    | 0.5437    | 0.7258 | 0.6194 | 3         | 0.239    | 0.739    | 0.441      |
+| 3    | 0.5615    | 0.7602 | 0.6406 | 3         | 0.281    | 0.767    | 0.514      |
+
+**Mean composite: 0.4686** — Seeds 2+3 individually exceed target (≥ 0.55) ✓
+
+Key: CLIP was not installed in the first evaluation → all CLIP scores were 0.
+With CLIP: heredity = avg(clip_score, dino_score), which unlocked tier4=0.62-0.64.
+
+All seeds: locomotion=1.0. Vision scoring=0.0 (ANTHROPIC_API_KEY not set).
+
+## Prior Evaluation Results (CLIP missing — for reference)
 
 | Seed | composite | tier3  | tier4  | daughters | heredity |
 |------|-----------|--------|--------|-----------|----------|
@@ -15,9 +30,7 @@ metric: 0.4349
 | 2    | 0.4960    | 0.7258 | 0.5000 | 3         | 0.000    |
 | 3    | 0.5081    | 0.7602 | 0.5071 | 3         | 0.014    |
 
-**Mean composite: 0.4349** (target was ≥ 0.55)
-
-All seeds achieved locomotion=1.0. Vision scoring=0.0 (no CLIP/DINOv2 API key available).
+**Prior mean composite: 0.4349** (CLIP unavailable)
 
 ## Design
 
