@@ -23,6 +23,7 @@ function render(data) {
   // Single-page: always show the index with inline detail panel on node click
   app.innerHTML = renderIndex(data);
   mountDag(data);
+  mountProgress(data);
 }
 
 function renderIndex(data) {
@@ -60,6 +61,11 @@ function renderIndex(data) {
     ${c.metric_description || c.eval_methodology ? renderMethodology(c) : ''}
     <h2>Research map</h2>
     ${orbits.length ? `<div id="dag"></div>` : `<p class="empty">0 orbits yet.</p>`}
+    ${orbits.length >= 2 ? `<h2>Progress</h2>
+      <div class="progress-charts">
+        <div class="chart-wrap"><canvas id="progress-best"></canvas></div>
+        <div class="chart-wrap"><canvas id="progress-scatter"></canvas></div>
+      </div>` : ''}
     <h2>Leaderboard</h2>
     ${orbits.length ? renderLeaderboard(sorted) : ''}
     ${data.campaign?.timeline?.length ? `<h2>Timeline</h2>${renderTimeline(data.campaign.timeline)}` : ''}
@@ -506,6 +512,137 @@ function mountDag(data) {
   cy.on('tap', function(evt) {
     if (evt.target === cy) deselectNode();
   });
+}
+
+// Render two progress charts from data.json:
+//   #progress-best    — cumulative best metric over orbit completion order (line)
+//   #progress-scatter — each orbit's metric at its completion index (scatter)
+// Reference lines for target and baselines are drawn when available.
+function mountProgress(data) {
+  const bestEl = document.getElementById('progress-best');
+  const scatterEl = document.getElementById('progress-scatter');
+  if (!bestEl || !scatterEl || typeof Chart === 'undefined') return;
+
+  const orbits = (data.orbits || []).filter(o => typeof o.metric === 'number' && !Number.isNaN(o.metric));
+  if (orbits.length < 2) return;
+
+  const direction = (data.campaign?.best?.direction || 'minimize').toLowerCase();
+  const isMin = !direction.startsWith('max');
+
+  const completed = [...orbits].sort((a, b) => {
+    const ta = a.last_commit_at ? Date.parse(a.last_commit_at) : 0;
+    const tb = b.last_commit_at ? Date.parse(b.last_commit_at) : 0;
+    return ta - tb;
+  });
+
+  const bestSeries = [];
+  let runningBest = null;
+  completed.forEach((o, i) => {
+    if (runningBest === null) runningBest = o.metric;
+    else runningBest = isMin ? Math.min(runningBest, o.metric) : Math.max(runningBest, o.metric);
+    bestSeries.push({ x: i + 1, y: runningBest, name: o.name });
+  });
+  const scatterSeries = completed.map((o, i) => ({ x: i + 1, y: o.metric, name: o.name, status: o.status }));
+
+  const target = typeof data.campaign?.best?.target === 'number' ? data.campaign.best.target : null;
+  const baselineValue = parseBaseline(data.campaign?.eval_methodology?.baseline);
+
+  const cs = getComputedStyle(document.documentElement);
+  const fg = cs.getPropertyValue('--foreground').trim() || '#222';
+  const muted = cs.getPropertyValue('--muted').trim() || '#888';
+  const accent = cs.getPropertyValue('--destructive').trim() || '#c44';
+
+  const refAnnotations = [];
+  if (target !== null) refAnnotations.push({ label: `target (${target})`, value: target, color: accent, dash: [6, 4] });
+  if (baselineValue !== null) refAnnotations.push({ label: `baseline (${baselineValue})`, value: baselineValue, color: muted, dash: [2, 3] });
+
+  // Chart.js plugin to draw horizontal reference lines
+  const refLinePlugin = {
+    id: 'refLines',
+    afterDatasetsDraw(chart) {
+      const { ctx, chartArea: { left, right }, scales: { y } } = chart;
+      refAnnotations.forEach(ref => {
+        if (ref.value < y.min || ref.value > y.max) return;
+        const py = y.getPixelForValue(ref.value);
+        ctx.save();
+        ctx.strokeStyle = ref.color;
+        ctx.setLineDash(ref.dash);
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.moveTo(left, py);
+        ctx.lineTo(right, py);
+        ctx.stroke();
+        ctx.fillStyle = ref.color;
+        ctx.font = '11px system-ui, sans-serif';
+        ctx.textAlign = 'right';
+        ctx.fillText(ref.label, right - 6, py - 4);
+        ctx.restore();
+      });
+    }
+  };
+
+  const baseOpts = (title) => ({
+    plugins: {
+      legend: { display: false },
+      title: { display: true, text: title, color: fg, font: { size: 13, weight: '600' } },
+      tooltip: {
+        callbacks: {
+          label: (ctx) => `${ctx.raw.name}: ${fmt(ctx.raw.y)}`,
+        }
+      }
+    },
+    scales: {
+      x: { title: { display: true, text: 'orbit completion #', color: muted }, ticks: { color: muted } },
+      y: {
+        title: { display: true, text: `metric (${isMin ? '↓ lower is better' : '↑ higher is better'})`, color: muted },
+        ticks: { color: muted },
+      },
+    },
+    responsive: true,
+    maintainAspectRatio: false,
+  });
+
+  new Chart(bestEl, {
+    type: 'line',
+    data: {
+      datasets: [{
+        label: 'best so far',
+        data: bestSeries,
+        borderColor: fg,
+        backgroundColor: fg,
+        tension: 0,
+        stepped: 'before',
+        pointRadius: 3,
+      }],
+    },
+    options: baseOpts('Best metric over time'),
+    plugins: [refLinePlugin],
+  });
+
+  new Chart(scatterEl, {
+    type: 'scatter',
+    data: {
+      datasets: [{
+        label: 'per-orbit metric',
+        data: scatterSeries,
+        backgroundColor: fg,
+        borderColor: fg,
+        pointRadius: 4,
+      }],
+    },
+    options: baseOpts('Per-orbit metric'),
+    plugins: [refLinePlugin],
+  });
+}
+
+// Parse a baseline string like "random: 2.68, greedy: 2.64" → numeric value
+// of the LAST entry (typically the strongest / most-relevant baseline).
+// Returns null if no numeric value is found.
+function parseBaseline(s) {
+  if (!s || typeof s !== 'string') return null;
+  const matches = [...s.matchAll(/-?\d+(?:\.\d+)?(?:[eE][+-]?\d+)?/g)];
+  if (matches.length === 0) return null;
+  return parseFloat(matches[matches.length - 1][0]);
 }
 
 function traceAncestry(id, orbits) {

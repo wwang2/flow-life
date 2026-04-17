@@ -1,29 +1,21 @@
-# research/config.yaml — single file for all campaign config
-
-# Plugin provenance — set by /init, updated by /sync
-plugin_version: "6bab07c"
-plugin_source: "local:/Users/wujiewang/code/git-evolve"
-
+plugin_version: c1d1fe9
+plugin_source: local:/Users/wujiewang/code/git-evolve
 metric:
-  name: "composite_life_likeness"
+  name: composite_life_likeness
   direction: maximize
-  target: 0.55                 # Tier 3+4+locomotion+VLM confirmed; 0.27t3+0.40t4+0.23v+0.10l
+  target: 0.55
   min_relative_improvement: 0.05
-
 baselines:
-  standard_flow_lenia: null    # to be measured on first Modal eval run
-
+  standard_flow_lenia: null
 eval:
-  timeout: 1200                # 20 minutes per seed on T4 GPU
+  timeout: 1200
   seeds: 3
-
 compute:
   backend: modal
   gpu: T4
   cpu: 4
   memory: 16384
   timeout: 3600
-
 execution:
   parallel_agents: 1
   parallel_orbits: 5
@@ -32,7 +24,6 @@ execution:
   milestone_interval: 3
   design_iterations: 1
   brainstorm_debate_rounds: 2
-
 phases:
   problem_refinement:
     parallel_agents: 5
@@ -40,11 +31,22 @@ phases:
   eval_construction:
     parallel_agents: 5
     design_iterations: 3
-
 agents:
-  orbit-agent: { model: opus, runtime: claude-code }
-  campaign-reviewer: { model: opus, runtime: claude-code }
-  orbit-reviewer: { model: sonnet, runtime: claude-code }
-  brainstorm-panel: { model: opus, runtime: claude-code }
-  debate-swarm: { model: sonnet, runtime: claude-code }
-  problem-refiner: { model: opus, runtime: claude-code }
+  orbit-agent:
+    model: opus
+    runtime: claude-code
+  campaign-reviewer:
+    model: opus
+    runtime: claude-code
+  orbit-reviewer:
+    model: sonnet
+    runtime: claude-code
+  brainstorm-panel:
+    model: opus
+    runtime: claude-code
+  debate-swarm:
+    model: sonnet
+    runtime: claude-code
+  problem-refiner:
+    model: opus
+    runtime: claude-code
