@@ -63,7 +63,6 @@ function renderIndex(data) {
     ${orbits.length ? `<div id="dag"></div>` : `<p class="empty">0 orbits yet.</p>`}
     ${orbits.length >= 2 ? `<h2>Progress</h2>
       <div class="progress-charts">
-        <div class="chart-wrap"><canvas id="progress-best"></canvas></div>
         <div class="chart-wrap"><canvas id="progress-scatter"></canvas></div>
       </div>` : ''}
     <h2>Leaderboard</h2>
@@ -519,9 +518,8 @@ function mountDag(data) {
 //   #progress-scatter — each orbit's metric at its completion index (scatter)
 // Reference lines for target and baselines are drawn when available.
 function mountProgress(data) {
-  const bestEl = document.getElementById('progress-best');
   const scatterEl = document.getElementById('progress-scatter');
-  if (!bestEl || !scatterEl || typeof Chart === 'undefined') return;
+  if (!scatterEl || typeof Chart === 'undefined') return;
 
   const orbits = (data.orbits || []).filter(o => typeof o.metric === 'number' && !Number.isNaN(o.metric));
   if (orbits.length < 2) return;
@@ -535,14 +533,22 @@ function mountProgress(data) {
     return ta - tb;
   });
 
-  const bestSeries = [];
+  // Scatter: every orbit at its completion index
+  const scatterSeries = completed.map((o, i) => ({ x: i + 1, y: o.metric, name: o.name, status: o.status }));
+
+  // Records: only orbits that set a new all-time best at the time they completed.
+  // A straight polyline through these points zig-zags across the scatter,
+  // visually marking the trajectory of progress.
+  const recordSeries = [];
   let runningBest = null;
   completed.forEach((o, i) => {
-    if (runningBest === null) runningBest = o.metric;
-    else runningBest = isMin ? Math.min(runningBest, o.metric) : Math.max(runningBest, o.metric);
-    bestSeries.push({ x: i + 1, y: runningBest, name: o.name });
+    const improves = runningBest === null
+      || (isMin ? o.metric < runningBest : o.metric > runningBest);
+    if (improves) {
+      runningBest = o.metric;
+      recordSeries.push({ x: i + 1, y: o.metric, name: o.name });
+    }
   });
-  const scatterSeries = completed.map((o, i) => ({ x: i + 1, y: o.metric, name: o.name, status: o.status }));
 
   const target = typeof data.campaign?.best?.target === 'number' ? data.campaign.best.target : null;
   const baselineValue = parseBaseline(data.campaign?.eval_methodology?.baseline);
@@ -602,35 +608,36 @@ function mountProgress(data) {
     maintainAspectRatio: false,
   });
 
-  new Chart(bestEl, {
-    type: 'line',
-    data: {
-      datasets: [{
-        label: 'best so far',
-        data: bestSeries,
-        borderColor: fg,
-        backgroundColor: fg,
-        tension: 0,
-        stepped: 'before',
-        pointRadius: 3,
-      }],
-    },
-    options: baseOpts('Best metric over time'),
-    plugins: [refLinePlugin],
-  });
-
   new Chart(scatterEl, {
     type: 'scatter',
     data: {
-      datasets: [{
-        label: 'per-orbit metric',
-        data: scatterSeries,
-        backgroundColor: fg,
-        borderColor: fg,
-        pointRadius: 4,
-      }],
+      datasets: [
+        {
+          label: 'per-orbit metric',
+          data: scatterSeries,
+          backgroundColor: muted,
+          borderColor: muted,
+          pointRadius: 4,
+          showLine: false,
+          order: 2,
+        },
+        {
+          label: 'new-best trajectory',
+          data: recordSeries,
+          type: 'line',
+          borderColor: fg,
+          backgroundColor: fg,
+          tension: 0,
+          pointRadius: 5,
+          pointBackgroundColor: fg,
+          borderWidth: 2,
+          showLine: true,
+          fill: false,
+          order: 1,
+        },
+      ],
     },
-    options: baseOpts('Per-orbit metric'),
+    options: baseOpts('Per-orbit metric + new-best trajectory'),
     plugins: [refLinePlugin],
   });
 }

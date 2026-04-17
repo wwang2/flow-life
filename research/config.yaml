@@ -1,4 +1,4 @@
-plugin_version: c1d1fe9
+plugin_version: b67f792
 plugin_source: local:/Users/wujiewang/code/git-evolve
 metric:
   name: composite_life_likeness
