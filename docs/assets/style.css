@@ -179,6 +179,25 @@ small, .meta {
   opacity: 0.6;
 }
 
+/* Progress charts */
+.progress-charts {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1.25rem;
+  margin: 1rem 0 2rem;
+}
+.progress-charts .chart-wrap {
+  background: var(--background);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 12px;
+  height: 280px;
+  position: relative;
+}
+@media (max-width: 720px) {
+  .progress-charts { grid-template-columns: 1fr; }
+}
+
 /* Leaderboard */
 table.leaderboard {
   width: 100%;
